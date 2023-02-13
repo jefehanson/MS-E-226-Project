@@ -2,8 +2,11 @@ library(tidyverse)
 library(dplyr)
 library(cvTools) 
 library(GGally)
+library (readr)
 
-df_soccer_raw <- read.csv("out.csv")
+urlfile="https://raw.githubusercontent.com/jefehanson/MS-E-226-Project/main/premier%20soccer%20data.csv"
+
+df_soccer_raw<-read_csv(url(urlfile))
 
 df_soccer <- df_soccer_raw %>% select(-1, -24:-139) #removing division and all of the betting columns and naming it df_soccer2
 df_soccer <- df_soccer[complete.cases(df_soccer), ]
