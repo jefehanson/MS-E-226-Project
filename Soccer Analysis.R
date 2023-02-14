@@ -64,17 +64,17 @@ predict_test <- predict(model, newdata = df_test3)
 rmse_model_test2 <- sqrt(mean((df_test3$FTG_Dif - predict_test)^2))
 model_cv10 <- cvFit(model, data = df_train3, K=10, y=df_train3$FTG_Dif, seed=1)
 
-
+view(df_train3)
 
 
 
 #code for ggpairs; commented out b/c takes forever to run
-"""
 #removing data and columns in order to run ggpairs(train) since it takes forever to plot
-df_in.train_subset = sample(nrow(df_soccer2_train), size = nrow(df_soccer2_train)*.1) #creating a new subset of 10% of the training data so that we can easily run ggpairs 
-df_train_subset = df_soccer2_train[df_in.train_subset, ] #10% subset of the training data  
-df_train_subrest = df_soccer2_train[-df_in.train_subset, ] #remaining 90% subset of the training data
+df_in.train_subset = sample(nrow(df_train3), size = nrow(df_train3)*.1) #creating a new subset of 10% of the training data so that we can easily run ggpairs 
+df_train_subset = df_train3[df_in.train_subset, ] #10% subset of the training data  
+df_train_subrest = df_train3[-df_in.train_subset, ] #remaining 90% subset of the training data
 #Removing a few categorical variables and then running ggpairs
-train_subset_removecol <- df_train_subset %>% select(-1, -2, -3, -4, -11)#removing some of the categorical variables w/ many categories
-#ggpairs(train_subset_removecol) #this takes a long time to plot
-"""
+train_subset_removecol <- df_train_subset %>% select(-1, -2, -5)#removing some of the categorical variables w/ many categories
+view(train_subset_removecol)
+ggpairs(train_subset_removecol) #this takes a long time to plot
+
