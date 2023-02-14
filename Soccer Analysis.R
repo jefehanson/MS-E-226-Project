@@ -13,6 +13,20 @@ df_soccer <- df_soccer_raw %>% select(-1, -24:-139) #removing division and all o
 df_soccer <- df_soccer[complete.cases(df_soccer), ]
 df_soccer$Date <-  dmy(df_soccer$Date) #converting 'date' column from a character to a date
 df_soccer$weekday <- weekdays(df_soccer$Date) #adding 'weekday' column to indicate date of week
+df_soccer <- df_soccer %>% 
+  mutate(Fun_Game = FTHG + FTAG, 
+         fun_avg_difference = Fun_Game - mean(df_soccer$Fun_Game), 
+         watch_game = ifelse(fun_avg_difference>0, "Watch", "Don't Watch"), 
+         watch_game2 = ifelse(((FTHG + FTAG) - mean(FTHG + FTAG))>0, "Watch", "Don't Watch")
+         )
+view(df_soccer)
+
+
+df_soccer <- df_soccer %>% 
+  mutate(fun_avg_difference = Fun_Game - mean(df_soccer$Fun_Game))
+
+
+mean(df_soccer$Fun_Game)
 
 
 #Splitting data so that we have a 20% holdout for the end of class
@@ -25,13 +39,13 @@ df_class_test <-  df_soccer[-in.train, ] #setting aside the holdout data to test
 
 
 #Model & CV
-model <-  lm(FTAG ~ ., data = df_soccer2)
+model <-  lm(FTHG ~ ., data = df_soccer2)
 summary(model)
 predict_model <-  predict(model, data = df_soccer2)
 rmse_model <-  sqrt(mean((df_soccer2$FTAG - predict_model)^2))
 predict_test <- predict(model, newdata = df_class_test)
 rmse_model_test <- sqrt(mean((df_class_test$FTAG - predict_test)^2))
-model_cv10 <- cvFit(model, data = df_soccer2, K=10, y=df_soccer2$FTAG, seed=1)
+model_cv10 <- cvFit(model, data = df_soccer2, K=10, y=df_soccer2$FTHG, seed=1)
 model_cv10
 
 
