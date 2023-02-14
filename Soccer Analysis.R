@@ -13,20 +13,27 @@ df_soccer <- df_soccer_raw %>% select(-1, -24:-139) #removing division and all o
 df_soccer <- df_soccer[complete.cases(df_soccer), ]
 df_soccer$Date <-  dmy(df_soccer$Date) #converting 'date' column from a character to a date
 df_soccer$weekday <- weekdays(df_soccer$Date) #adding 'weekday' column to indicate date of week
+df_soccer$day_of_year <- yday(df_soccer$Date)
+
+count_days <- table(df_soccer$day_of_year)
+df_count_days <- as.data.frame(count_days)#the first spike in games is at day 207
+ggplot(data = df_count_days, mapping = aes(x = Var1, y = Freq)) +
+  geom_bar(stat = "identity") #wanted to visualize it to confirm
+
+#calculating how far into season (days above 207)
 df_soccer <- df_soccer %>% 
-  mutate(Fun_Game = FTHG + FTAG, 
-         fun_avg_difference = Fun_Game - mean(df_soccer$Fun_Game), 
-         watch_game = ifelse(fun_avg_difference>0, "Watch", "Don't Watch"), 
-         watch_game2 = ifelse(((FTHG + FTAG) - mean(FTHG + FTAG))>0, "Watch", "Don't Watch")
-         )
-view(df_soccer)
+  mutate(day_of_season = ifelse(day_of_year > 207, day_of_year - 207, day_of_year +(366-207)))
 
-
+# 'Exciting' vs 'Boring': is total game goals higher than avg total game goals? yes=exciting, no=boring
 df_soccer <- df_soccer %>% 
-  mutate(fun_avg_difference = Fun_Game - mean(df_soccer$Fun_Game))
+  mutate(watch_game = ifelse(
+    ((FTHG + FTAG) - mean(FTHG + FTAG))>0, "Exciting", "Boring"))  
+#calc no. of points earned each game and replacing "FTR" with points
+df_soccer$FTR <- ifelse(df_soccer$FTR == "A", 0,
+                        ifelse(df_soccer$FTR == "D", 1,
+                               ifelse(df_soccer$FTR == "H", 3, NA)
+                        ))
 
-
-mean(df_soccer$Fun_Game)
 
 
 #Splitting data so that we have a 20% holdout for the end of class
@@ -34,31 +41,26 @@ set.seed(1)
 df_soccer$id <- 1:nrow(df_soccer) #adding a unique ID column
 in.train <-  sample(nrow(df_soccer), size = nrow(df_soccer)*.8) #setting 80% of the data for the train
 df_soccer2 <-  df_soccer[in.train, ] #this is the 80% we can work with until the end
-df_class_test <-  df_soccer[-in.train, ] #setting aside the holdout data to test at the end
+df_class_test <-  df_soccer[-in.train, ] #setting aside the holdout data to 
 
-
+#Removing the categorical outcome variable (and "Referee" so cvFit will work)
+df_soccer3 <- subset(df_soccer2, select = -c(watch_game, Referee))
 
 #Model & CV
-model <-  lm(FTHG ~ ., data = df_soccer2)
+model <-  lm(FTR ~ ., data = df_soccer3)
 summary(model)
-predict_model <-  predict(model, data = df_soccer2)
-rmse_model <-  sqrt(mean((df_soccer2$FTAG - predict_model)^2))
+predict_model <-  predict(model, data = df_soccer3)
+rmse_model <-  sqrt(mean((df_soccer3$FTR - predict_model)^2))
+
+#Comparing holdout vs Train and CV not working b/c referee
 predict_test <- predict(model, newdata = df_class_test)
-rmse_model_test <- sqrt(mean((df_class_test$FTAG - predict_test)^2))
-model_cv10 <- cvFit(model, data = df_soccer2, K=10, y=df_soccer2$FTHG, seed=1)
+rmse_model_test <- sqrt(mean((df_class_test$FTR - predict_test)^2))
+model_cv10 <- cvFit(model, data = df_soccer3, K=10, y=df_soccer3$FTR, seed=1)
 model_cv10
 
-
-
-
-
-#code for ggpairs; commented out b/c takes forever to run
 #removing data and columns in order to run ggpairs(train) since it takes forever to plot
-df_in.train_subset = sample(nrow(df_train3), size = nrow(df_train3)*.1) #creating a new subset of 10% of the training data so that we can easily run ggpairs 
-df_train_subset = df_train3[df_in.train_subset, ] #10% subset of the training data  
-df_train_subrest = df_train3[-df_in.train_subset, ] #remaining 90% subset of the training data
+df_soccer3_sub = sample(nrow(df_soccer3), size = nrow(df_soccer3)*.1) #creating a new subset of 10% of the training data so that we can easily run ggpairs 
+df_soccer3_sub_in = df_soccer3[df_soccer3_sub, ] #10% subset of the training data  
 #Removing a few categorical variables and then running ggpairs
-train_subset_removecol <- df_train_subset %>% select(-1, -2, -5)#removing some of the categorical variables w/ many categories
-view(train_subset_removecol)
-ggpairs(train_subset_removecol) #this takes a long time to plot
-
+df_soccer3_sub_in2 <- subset(df_soccer3_sub_in, select = -c(Date, HomeTeam, AwayTeam, HTR, id, day_of_year))#removing some of the categorical variables w/ many categories
+#ggpairs(df_soccer3_sub_in2) #this takes a long time to plot
