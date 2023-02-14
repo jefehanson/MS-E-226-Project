@@ -33,8 +33,8 @@ df_soccer$FTR <- ifelse(df_soccer$FTR == "A", 0,
                         ifelse(df_soccer$FTR == "D", 1,
                                ifelse(df_soccer$FTR == "H", 3, NA)
                         ))
-
-
+names(df_soccer)[names(df_soccer) == "FTR"] <- "Points" #renaming FTR to #Points
+view(df_soccer)
 
 #Splitting data so that we have a 20% holdout for the end of class
 set.seed(1) 
@@ -47,15 +47,15 @@ df_class_test <-  df_soccer[-in.train, ] #setting aside the holdout data to
 df_soccer3 <- subset(df_soccer2, select = -c(watch_game, Referee))
 
 #Model & CV
-model <-  lm(FTR ~ ., data = df_soccer3)
+model <-  lm(Points ~ ., data = df_soccer3)
 summary(model)
 predict_model <-  predict(model, data = df_soccer3)
-rmse_model <-  sqrt(mean((df_soccer3$FTR - predict_model)^2))
+rmse_model <-  sqrt(mean((df_soccer3$Points - predict_model)^2))
 
 #Comparing holdout vs Train and CV not working b/c referee
 predict_test <- predict(model, newdata = df_class_test)
-rmse_model_test <- sqrt(mean((df_class_test$FTR - predict_test)^2))
-model_cv10 <- cvFit(model, data = df_soccer3, K=10, y=df_soccer3$FTR, seed=1)
+rmse_model_test <- sqrt(mean((df_class_test$Points - predict_test)^2))
+model_cv10 <- cvFit(model, data = df_soccer3, K=10, y=df_soccer3$Points, seed=1)
 model_cv10
 
 #removing data and columns in order to run ggpairs(train) since it takes forever to plot
