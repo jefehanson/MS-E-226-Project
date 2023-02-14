@@ -22,7 +22,7 @@ ggplot(data = df_count_days, mapping = aes(x = Var1, y = Freq)) +
 
 #calculating how far into season (days above 207)
 df_soccer <- df_soccer %>% 
-  mutate(day_of_season = ifelse(day_of_year > 207, day_of_year - 207, day_of_year +(366-207)))
+  mutate(days_into = ifelse(day_of_year > 207, day_of_year - 207, day_of_year +(366-207)))
 
 # 'Exciting' vs 'Boring': is total game goals higher than avg total game goals? yes=exciting, no=boring
 df_soccer <- df_soccer %>% 
@@ -34,7 +34,6 @@ df_soccer$FTR <- ifelse(df_soccer$FTR == "A", 0,
                                ifelse(df_soccer$FTR == "H", 3, NA)
                         ))
 names(df_soccer)[names(df_soccer) == "FTR"] <- "Points" #renaming FTR to #Points
-view(df_soccer)
 
 #Splitting data so that we have a 20% holdout for the end of class
 set.seed(1) 
@@ -64,3 +63,5 @@ df_soccer3_sub_in = df_soccer3[df_soccer3_sub, ] #10% subset of the training dat
 #Removing a few categorical variables and then running ggpairs
 df_soccer3_sub_in2 <- subset(df_soccer3_sub_in, select = -c(Date, HomeTeam, AwayTeam, HTR, id, day_of_year))#removing some of the categorical variables w/ many categories
 #ggpairs(df_soccer3_sub_in2) #this takes a long time to plot
+df_soccer3_sub_in3 <- subset(df_soccer3_sub_in, select = -c(Date, HomeTeam, AwayTeam, HTR, id, day_of_year, weekday, days_into))#removing some of the categorical variables w/ many categories
+ggpairs(df_soccer3_sub_in3) #this takes a long time to plot
