@@ -69,6 +69,7 @@ view(df_train3)
 
 
 #code for ggpairs; commented out b/c takes forever to run
+"""
 #removing data and columns in order to run ggpairs(train) since it takes forever to plot
 df_in.train_subset = sample(nrow(df_train3), size = nrow(df_train3)*.1) #creating a new subset of 10% of the training data so that we can easily run ggpairs 
 df_train_subset = df_train3[df_in.train_subset, ] #10% subset of the training data  
@@ -77,4 +78,4 @@ df_train_subrest = df_train3[-df_in.train_subset, ] #remaining 90% subset of the
 train_subset_removecol <- df_train_subset %>% select(-1, -2, -5)#removing some of the categorical variables w/ many categories
 view(train_subset_removecol)
 ggpairs(train_subset_removecol) #this takes a long time to plot
-
+"""
