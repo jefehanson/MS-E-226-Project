@@ -4,7 +4,6 @@ library(cvTools)
 library(GGally)
 library (readr)
 library(lubridate)
-install.packages("boot")
 library(boot)
 
 urlfile="https://raw.githubusercontent.com/jefehanson/MS-E-226-Project/main/premier%20soccer%20data.csv"
@@ -36,7 +35,8 @@ df_soccer$FTR <- ifelse(df_soccer$FTR == "A", 0,
                                ifelse(df_soccer$FTR == "H", 3, NA)
                         ))
 names(df_soccer)[names(df_soccer) == "FTR"] <- "Points" #renaming FTR to #Points
-
+df_soccer <- subset(df_soccer, select = -c(FTAG, FTHG))
+view(df_soccer)
 
 #Splitting data so that we have a 20% holdout for the end of class
 set.seed(1) 
@@ -46,7 +46,7 @@ df_soccer2 <-  df_soccer[in.train, ] #this is the 80% we can work with until the
 df_class_test <-  df_soccer[-in.train, ] #setting aside the holdout data to 
 
 #Removing the categorical outcome variable (and "Referee" so cvFit will work)
-df_soccer3 <- subset(df_soccer2, select = -c(watch_game, Referee, id))
+df_soccer3 <- subset(df_soccer2, select = -c(Referee, id))
 
 #Model & CV  *1*
 model <-  lm(Points ~ ., data = df_soccer3)
@@ -79,11 +79,12 @@ model3_cv10 <- cvFit(model3, data = df_soccer5, K=10, y=df_soccer5$Points, seed=
 model3_cv10
 
 #Classification Model
-view(df_soccer2)
-df_soccer_bin <- subset(df_soccer2, select = -c(Referee, id, FTAG, FTHG))
+df_soccer_bin <- subset(df_soccer2, select = -c(Referee, id))
 class_model = glm(formula = watch_game ~ ., family = "binomial", data = df_soccer_bin)
 summary(class_model)
 cv_class.model <- cv.glm(df_soccer_bin, class_model, K = 10)
+cv_class.model
+
 
 
 
