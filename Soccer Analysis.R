@@ -51,6 +51,7 @@ df_soccer3 <- subset(df_soccer2, select = -c(watch_game, Referee, id))
 #Model & CV  *1*
 model <-  lm(Points ~ ., data = df_soccer3)
 summary(model)
+
 predict_model <-  predict(model, data = df_soccer3)
 rmse_model <-  sqrt(mean((df_soccer3$Points - predict_model)^2))
 model_cv10 <- cvFit(model, data = df_soccer3, K=10, y=df_soccer3$Points, seed=1)
