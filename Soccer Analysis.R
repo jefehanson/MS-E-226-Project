@@ -62,9 +62,15 @@ model
 summary(model)
 
 predict_model <-  predict(model, data = df_soccer3)
-rmse_model <-  sqrt(mean((df_soccer3$Points - predict_model)^2))
-model_cv10 <- cvFit(model, data = df_soccer3, K=10, y=df_soccer3$Points, seed=1)
-model_cv10
+rmse_allvar <-  sqrt(mean((df_soccer3$Points - predict_model)^2))
+cv10model <- cvFit(model, data = df_soccer3, K=10, y=df_soccer3$Points, seed=1)
+rmse_allvar_cv010 <- 0.9720125
+cv5model <- cvFit(model, data = df_soccer3, K=5, y=df_soccer3$Points, seed=1)
+cv5model
+rmse_allvar_cv005 <- .9722982
+cv100model <- cvFit(model, data = df_soccer3, K=100, y=df_soccer3$Points, seed=1)
+cv100model
+rmse_allvar_cv100 <- .9716984
 
 plot(model$fitted.values, model$residuals)
 
@@ -88,17 +94,20 @@ lambda <- lasso_cv_model$lambda.min
 fit <- glmnet(x, df_soccer3$Points, alpha = 1, lambda = lambda)
 
 ### Evaluate the performance of the model on the test set
-pred <- predict(fit, x)
-lasso_mse <- mean((pred - df_soccer3$Points)^2)
-lasso_mse
+lasso_pred <- predict(fit, x)
+mse_lasso <- mean((lasso_pred - df_soccer3$Points)^2)
+rmse_lasso <- sqrt(mean((lasso_pred - df_soccer3$Points)^2))
+rmse_lasso
+mse_lasso
+
 
 sst <- sum((df_soccer3$Points - mean(df_soccer3$Points))^2)
-lasso_sse <- sum((pred - df_soccer3$Points)^2)
+sse_lasso <- sum((lasso_pred - df_soccer3$Points)^2)
 sst
-lasso_sse
+sse_lasso
 #find R-Squared
-lasso_rsq <- 1 - lasso_sse/sst
-lasso_rsq
+rsq_lasso <- 1 - lasso_sse/sst
+rsq_lasso
 
 
 
@@ -116,36 +125,30 @@ coef(best_model)
 plot(best_model, xvar = "lambda")
 plot(ridge_model, xvar = "lambda")
 
-y_predicted <-predict(ridge_model, s = best_ridge_lambda, newx = x)
-ridge_mse <- mean((y_predicted - df_soccer3$Points)^2)
+ridge_pred <-predict(ridge_model, s = best_ridge_lambda, newx = x)
+mse_ridge <- mean((ridge_pred - df_soccer3$Points)^2)
+rmse_ridge <- sqrt(mean((ridge_pred - df_soccer3$Points)^2))
+rmse_ridge
 ridge_mse
 
 
 #find SST and SSE
 sst <- sum((df_soccer3$Points - mean(df_soccer3$Points))^2)
-sse <- sum((y_predicted - df_soccer3$Points)^2)
+sse <- sum((ridge_pred - df_soccer3$Points)^2)
 sst
 sse
 #find R-Squared
 rsq <- 1 - sse/sst
 rsq
 
-Mtrain.x <- x
-train.x <- scale(train.x)
-train.y <- 
-
-
-
-
-
-
 #Model & CV *3* - removing range of covariates 
 df_soccer5 <- subset(df_soccer3, select = -c(day_of_year, days_into, Date, HomeTeam, AwayTeam, weekday, HR, AR, HY, AY, HF, AF, watch_game))
 model3 <-  lm(Points ~ ., data = df_soccer5)
 predict_model3 <-  predict(model3, data = df_soccer5)
-rmse_model3 <-  sqrt(mean((df_soccer5$Points - predict_model2)^2))
+rmse_lessvar <-  sqrt(mean((df_soccer5$Points - predict_model3)^2))
 model3_cv10 <- cvFit(model3, data = df_soccer5, K=10, y=df_soccer5$Points, seed=1)
 model3_cv10
+rmse_lessvar_cv10 <- .9837787
 
 #model 3a. WITH LASSO 
 x <- data.matrix(df_soccer5[, c('HTHG', 'HTAG', 'HTR', 'HS', 'AS', 'HST', 'AST', 'HC' , 'AC')])
