@@ -42,7 +42,7 @@ df_soccer <- subset(df_soccer, select = -c(FTAG, FTHG))
 
 
 
-#Splitting data so that we have a 20% holdout for the end of class
+#80% train data; 20% holdout data
 set.seed(1) 
 df_soccer$id <- 1:nrow(df_soccer) #adding a unique ID column
 in.train <-  sample(nrow(df_soccer), size = nrow(df_soccer)*.8) #setting 80% of the data for the train
@@ -53,11 +53,12 @@ df_class_test <-  df_soccer[-in.train, ] #setting aside the holdout data to
 
 
 
-#Removing the categorical outcome variable (and "Referee" so cvFit will work)
+#Removing "Referee" and ID so cvFit will work
 df_soccer3 <- subset(df_soccer2, select = -c(Referee, id))
 
 #Model & CV  *1*
 model <-  lm(Points ~ ., data = df_soccer3)
+model
 summary(model)
 
 predict_model <-  predict(model, data = df_soccer3)
@@ -75,10 +76,8 @@ var(model$residuals)
 
 head(df_soccer3)
 
-#model 1a. WITH LASSO 
+#model 1a. LASSO 
 x <- data.matrix(df_soccer3[, c('HTHG', 'HTAG', 'HTR', 'HS', 'AS', 'HST', 'AST', 'HC' , 'AC', 'HY', 'AY', 'HR', 'AR')])
-test <- subset(df_class_test, select = c('Points', 'HTHG', 'HTAG', 'HTR', 'HS', 'AS', 'HST', 'AST', 'HC' , 'AC', 'HY', 'AY', 'HR', 'AR'))
-head(test)
 lasso <- glmnet(x, df_soccer3$Points)
 
 ### Use cross-validation to select the optimal lambda value
@@ -93,11 +92,17 @@ pred <- predict(fit, x)
 lasso_mse <- mean((pred - df_soccer3$Points)^2)
 lasso_mse
 
-lasso_mse_test2 <- mean((pred - test$Points)^2)
-lasso_mse_test2
-mse_test
+sst <- sum((df_soccer3$Points - mean(df_soccer3$Points))^2)
+lasso_sse <- sum((pred - df_soccer3$Points)^2)
+sst
+lasso_sse
+#find R-Squared
+lasso_rsq <- 1 - lasso_sse/sst
+lasso_rsq
 
-#Trying RIDGE Regression
+
+
+#model 1b. RIDGE REGRESSION
 ridge_model <- glmnet(x, df_soccer3$Points, alpha = 0)
 summary(ridge_model)
 cv_ridge <- cv.glmnet(x, df_soccer3$Points, alpha = 0)
