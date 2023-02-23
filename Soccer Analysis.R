@@ -3,17 +3,21 @@ library(dplyr)
 library(cvTools) 
 library(GGally)
 library(readr)
-library(lubridate)
 library(boot)
 library(ggplot2)
 library(glmnet)
 
+
+#####################################
+#DATA IMPORT AND TRANSFORMATION
 urlfile="https://raw.githubusercontent.com/jefehanson/MS-E-226-Project/main/premier%20soccer%20data.csv"
 
 df_soccer_raw<-read_csv(url(urlfile))
 
+
 df_soccer <- df_soccer_raw %>% select(-1, -24:-139) #removing division and all of the betting columns and naming it df_soccer2
 df_soccer <- df_soccer[complete.cases(df_soccer), ]
+library(lubridate)
 df_soccer$Date <-  dmy(df_soccer$Date) #converting 'date' column from a character to a date
 df_soccer$weekday <- weekdays(df_soccer$Date) #adding 'weekday' column to indicate date of week
 df_soccer$day_of_year <- yday(df_soccer$Date)
@@ -40,8 +44,8 @@ names(df_soccer)[names(df_soccer) == "FTR"] <- "Points" #renaming FTR to #Points
 df_soccer <- subset(df_soccer, select = -c(FTAG, FTHG))
 
 
-
-
+#####################################
+#DATA SPLITTING
 #80% train data; 20% holdout data
 set.seed(1) 
 df_soccer$id <- 1:nrow(df_soccer) #adding a unique ID column
@@ -50,11 +54,13 @@ df_soccer2 <-  df_soccer[in.train, ] #this is the 80% we can work with until the
 df_class_test <-  df_soccer[-in.train, ] #setting aside the holdout data to 
 
 
-
-
+#####################################
+#REGRESSION MODELS
 
 #Removing "Referee" and ID so cvFit will work
 df_soccer3 <- subset(df_soccer2, select = -c(Referee, id))
+head(df_soccer3)
+df_soccer3_num <- subset(df_soccer3, select = -c(Date, HomeTeam, AwayTeam, HTR, weekday))
 
 #Model & CV  *1*
 model <-  lm(Points ~ ., data = df_soccer3)
@@ -81,6 +87,24 @@ ggplot(data.frame(x = model$fitted.values, resid = model$residuals), aes(x, resi
 var(model$residuals)
 
 head(df_soccer3)
+
+
+#Visualizing AllVar Model
+
+library(corrplot)
+cor_matrix <- cor(df_soccer3_num)
+order <- order(abs(cor_matrix[, "Points"]), decreasing = TRUE)
+corrplot(cor_matrix[order, order], method = "color", type = "upper", tl.cex = 0.7, number.cex = 0.7)
+
+residuals <- residuals(model)
+hist(residuals, main = "Histogram of Residuals", xlab = "Residuals", breaks = 100, 
+     col = "blue", border = "white", ylab = "Frequency")
+library(moments)
+skewness(residuals)
+
+ggplot(df_soccer3) + 
+  geom_point(mapping = aes(x = HS, y = Points))
+
 
 #model 1a. LASSO 
 x <- data.matrix(df_soccer3[, c('HTHG', 'HTAG', 'HTR', 'HS', 'AS', 'HST', 'AST', 'HC' , 'AC', 'HY', 'AY', 'HR', 'AR')])
@@ -175,6 +199,8 @@ mse_test
 
 
 
+#####################################
+#CLASSIFICATION MODELS
 
 #Classification Model
 df_soccer_bin <- subset(df_soccer2, select = -c(Referee, id))
@@ -185,6 +211,8 @@ cv_class.model
 
 
 
+#####################################
+#GRAVEYARD / OLD
 
 #removing data and columns in order to run ggpairs(train) since it takes forever to plot
 df_soccer3_sub = sample(nrow(df_soccer3), size = nrow(df_soccer3)*.1) #creating a new subset of 10% of the training data so that we can easily run ggpairs 
