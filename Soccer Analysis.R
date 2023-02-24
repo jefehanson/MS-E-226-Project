@@ -68,42 +68,47 @@ model
 summary(model)
 
 predict_model <-  predict(model, data = df_soccer3)
-rmse_allvar <-  sqrt(mean((df_soccer3$Points - predict_model)^2))
+rmse_allvarLM <-  sqrt(mean((df_soccer3$Points - predict_model)^2))
 cv10model <- cvFit(model, data = df_soccer3, K=10, y=df_soccer3$Points, seed=1)
-rmse_allvar_cv010 <- 0.9720125
+cv10model
+rmse_allvarLM_cv10 <- 0.9720125
 cv5model <- cvFit(model, data = df_soccer3, K=5, y=df_soccer3$Points, seed=1)
-cv5model
-rmse_allvar_cv005 <- .9722982
 cv100model <- cvFit(model, data = df_soccer3, K=100, y=df_soccer3$Points, seed=1)
-cv100model
-rmse_allvar_cv100 <- .9716984
 
+#evaluating variance of allvarLM
+var(model$residuals)
+allVarLM_residuals <- residuals(model)
+library(moments)
+
+skewness(allVarLM_residuals)
+allVarLM_skewness <- skewness(allVarLM_residuals)
+allVarLM_skewness
+
+qqnorm(allVarLM_residuals, col = rgb(red = 0, green = 0, blue = 1, alpha = .1), pch = 1)
+qqline(allVarLM_residuals)
+par(mar = c(5, 5, 4, 2) + 0.1, cex.lab = 1.2, cex.axis = 1.2)
+
+#Visualizing AllVarLM
+
+##Plots evaluating variance
 plot(model$fitted.values, model$residuals)
-
 ggplot(data.frame(x = model$fitted.values, resid = model$residuals), aes(x, resid)) +
   geom_point() +
   stat_smooth(method = "loess")
 
-var(model$residuals)
-
-head(df_soccer3)
-
-
-#Visualizing AllVar Model
-
+##Plots evaluating the correlation on the diagonal
 library(corrplot)
 cor_matrix <- cor(df_soccer3_num)
 order <- order(abs(cor_matrix[, "Points"]), decreasing = TRUE)
 corrplot(cor_matrix[order, order], method = "color", type = "upper", tl.cex = 0.7, number.cex = 0.7)
 
-residuals <- residuals(model)
-hist(residuals, main = "Histogram of Residuals", xlab = "Residuals", breaks = 100, 
+#Histogram of residuals of allvarLM
+hist(allVarLM_residuals, main = "Histogram of allvarLM Residuals", xlab = "Residuals", breaks = 100, 
      col = "blue", border = "white", ylab = "Frequency")
-library(moments)
-skewness(residuals)
 
 ggplot(df_soccer3) + 
   geom_point(mapping = aes(x = HS, y = Points))
+
 
 
 #model 1a. LASSO 
@@ -112,15 +117,16 @@ lasso <- glmnet(x, df_soccer3$Points)
 
 ### Use cross-validation to select the optimal lambda value
 lasso_cv_model <- cv.glmnet(x, df_soccer3$Points, alpha = 1)
+plot(lasso_cv_model)
 lambda <- lasso_cv_model$lambda.min
-
+lambda
 ### Fit the model using the entire training set with the optimal lambda value
 fit <- glmnet(x, df_soccer3$Points, alpha = 1, lambda = lambda)
 
 ### Evaluate the performance of the model on the test set
 lasso_pred <- predict(fit, x)
 mse_lasso <- mean((lasso_pred - df_soccer3$Points)^2)
-rmse_lasso <- sqrt(mean((lasso_pred - df_soccer3$Points)^2))
+rmse_lasso_cv10 <- sqrt(mean((lasso_pred - df_soccer3$Points)^2))
 rmse_lasso
 mse_lasso
 
@@ -169,10 +175,10 @@ rsq
 df_soccer5 <- subset(df_soccer3, select = -c(day_of_year, days_into, Date, HomeTeam, AwayTeam, weekday, HR, AR, HY, AY, HF, AF, watch_game))
 model3 <-  lm(Points ~ ., data = df_soccer5)
 predict_model3 <-  predict(model3, data = df_soccer5)
-rmse_lessvar <-  sqrt(mean((df_soccer5$Points - predict_model3)^2))
+rmse_lessvarLM <-  sqrt(mean((df_soccer5$Points - predict_model3)^2))
 model3_cv10 <- cvFit(model3, data = df_soccer5, K=10, y=df_soccer5$Points, seed=1)
 model3_cv10
-rmse_lessvar_cv10 <- .9837787
+rmse_lessvarLM_cv10 <- 0.9837787
 
 #model 3a. WITH LASSO 
 x <- data.matrix(df_soccer5[, c('HTHG', 'HTAG', 'HTR', 'HS', 'AS', 'HST', 'AST', 'HC' , 'AC')])
