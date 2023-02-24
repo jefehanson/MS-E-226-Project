@@ -3,18 +3,22 @@ library(dplyr)
 library(cvTools) 
 library(GGally)
 library(readr)
-library(lubridate)
 library(boot)
 library(pROC)
 library(ggplot2)
 library(glmnet)
 
+
+#####################################
+#DATA IMPORT AND TRANSFORMATION
 urlfile="https://raw.githubusercontent.com/jefehanson/MS-E-226-Project/main/premier%20soccer%20data.csv"
 
 df_soccer_raw<-read_csv(url(urlfile))
 
+
 df_soccer <- df_soccer_raw %>% select(-1, -24:-139) #removing division and all of the betting columns and naming it df_soccer2
 df_soccer <- df_soccer[complete.cases(df_soccer), ]
+library(lubridate)
 df_soccer$Date <-  dmy(df_soccer$Date) #converting 'date' column from a character to a date
 df_soccer$weekday <- weekdays(df_soccer$Date) #adding 'weekday' column to indicate date of week
 df_soccer$day_of_year <- yday(df_soccer$Date)
@@ -41,8 +45,8 @@ names(df_soccer)[names(df_soccer) == "FTR"] <- "Points" #renaming FTR to #Points
 df_soccer <- subset(df_soccer, select = -c(FTAG, FTHG))
 
 
-
-
+#####################################
+#DATA SPLITTING
 #80% train data; 20% holdout data
 set.seed(1) 
 df_soccer$id <- 1:nrow(df_soccer) #adding a unique ID column
@@ -51,11 +55,18 @@ df_soccer2 <-  df_soccer[in.train, ] #this is the 80% we can work with until the
 df_class_test <-  df_soccer[-in.train, ] #setting aside the holdout data to 
 
 
+<<<<<<< HEAD
 ?
 
+=======
+#####################################
+#REGRESSION MODELS
+>>>>>>> refs/remotes/origin/main
 
 #Removing "Referee" and ID so cvFit will work
 df_soccer3 <- subset(df_soccer2, select = -c(Referee, id))
+head(df_soccer3)
+df_soccer3_num <- subset(df_soccer3, select = -c(Date, HomeTeam, AwayTeam, HTR, weekday))
 
 #Model & CV  *1*
 model <-  lm(Points ~ ., data = df_soccer3)
@@ -63,9 +74,15 @@ model
 summary(model)
 
 predict_model <-  predict(model, data = df_soccer3)
-rmse_model <-  sqrt(mean((df_soccer3$Points - predict_model)^2))
-model_cv10 <- cvFit(model, data = df_soccer3, K=10, y=df_soccer3$Points, seed=1)
-model_cv10
+rmse_allvar <-  sqrt(mean((df_soccer3$Points - predict_model)^2))
+cv10model <- cvFit(model, data = df_soccer3, K=10, y=df_soccer3$Points, seed=1)
+rmse_allvar_cv010 <- 0.9720125
+cv5model <- cvFit(model, data = df_soccer3, K=5, y=df_soccer3$Points, seed=1)
+cv5model
+rmse_allvar_cv005 <- .9722982
+cv100model <- cvFit(model, data = df_soccer3, K=100, y=df_soccer3$Points, seed=1)
+cv100model
+rmse_allvar_cv100 <- .9716984
 
 plot(model$fitted.values, model$residuals)
 
@@ -76,6 +93,24 @@ ggplot(data.frame(x = model$fitted.values, resid = model$residuals), aes(x, resi
 var(model$residuals)
 
 head(df_soccer3)
+
+
+#Visualizing AllVar Model
+
+library(corrplot)
+cor_matrix <- cor(df_soccer3_num)
+order <- order(abs(cor_matrix[, "Points"]), decreasing = TRUE)
+corrplot(cor_matrix[order, order], method = "color", type = "upper", tl.cex = 0.7, number.cex = 0.7)
+
+residuals <- residuals(model)
+hist(residuals, main = "Histogram of Residuals", xlab = "Residuals", breaks = 100, 
+     col = "blue", border = "white", ylab = "Frequency")
+library(moments)
+skewness(residuals)
+
+ggplot(df_soccer3) + 
+  geom_point(mapping = aes(x = HS, y = Points))
+
 
 #model 1a. LASSO 
 x <- data.matrix(df_soccer3[, c('HTHG', 'HTAG', 'HTR', 'HS', 'AS', 'HST', 'AST', 'HC' , 'AC', 'HY', 'AY', 'HR', 'AR')])
@@ -89,17 +124,20 @@ lambda <- lasso_cv_model$lambda.min
 fit <- glmnet(x, df_soccer3$Points, alpha = 1, lambda = lambda)
 
 ### Evaluate the performance of the model on the test set
-pred <- predict(fit, x)
-lasso_mse <- mean((pred - df_soccer3$Points)^2)
-lasso_mse
+lasso_pred <- predict(fit, x)
+mse_lasso <- mean((lasso_pred - df_soccer3$Points)^2)
+rmse_lasso <- sqrt(mean((lasso_pred - df_soccer3$Points)^2))
+rmse_lasso
+mse_lasso
+
 
 sst <- sum((df_soccer3$Points - mean(df_soccer3$Points))^2)
-lasso_sse <- sum((pred - df_soccer3$Points)^2)
+sse_lasso <- sum((lasso_pred - df_soccer3$Points)^2)
 sst
-lasso_sse
+sse_lasso
 #find R-Squared
-lasso_rsq <- 1 - lasso_sse/sst
-lasso_rsq
+rsq_lasso <- 1 - lasso_sse/sst
+rsq_lasso
 
 
 
@@ -117,36 +155,30 @@ coef(best_model)
 plot(best_model, xvar = "lambda")
 plot(ridge_model, xvar = "lambda")
 
-y_predicted <-predict(ridge_model, s = best_ridge_lambda, newx = x)
-ridge_mse <- mean((y_predicted - df_soccer3$Points)^2)
+ridge_pred <-predict(ridge_model, s = best_ridge_lambda, newx = x)
+mse_ridge <- mean((ridge_pred - df_soccer3$Points)^2)
+rmse_ridge <- sqrt(mean((ridge_pred - df_soccer3$Points)^2))
+rmse_ridge
 ridge_mse
 
 
 #find SST and SSE
 sst <- sum((df_soccer3$Points - mean(df_soccer3$Points))^2)
-sse <- sum((y_predicted - df_soccer3$Points)^2)
+sse <- sum((ridge_pred - df_soccer3$Points)^2)
 sst
 sse
 #find R-Squared
 rsq <- 1 - sse/sst
 rsq
 
-Mtrain.x <- x
-train.x <- scale(train.x)
-train.y <- 
-
-
-
-
-
-
 #Model & CV *3* - removing range of covariates 
 df_soccer5 <- subset(df_soccer3, select = -c(day_of_year, days_into, Date, HomeTeam, AwayTeam, weekday, HR, AR, HY, AY, HF, AF, watch_game))
 model3 <-  lm(Points ~ ., data = df_soccer5)
 predict_model3 <-  predict(model3, data = df_soccer5)
-rmse_model3 <-  sqrt(mean((df_soccer5$Points - predict_model2)^2))
+rmse_lessvar <-  sqrt(mean((df_soccer5$Points - predict_model3)^2))
 model3_cv10 <- cvFit(model3, data = df_soccer5, K=10, y=df_soccer5$Points, seed=1)
 model3_cv10
+rmse_lessvar_cv10 <- .9837787
 
 #model 3a. WITH LASSO 
 x <- data.matrix(df_soccer5[, c('HTHG', 'HTAG', 'HTR', 'HS', 'AS', 'HST', 'AST', 'HC' , 'AC')])
@@ -173,6 +205,8 @@ mse_test
 
 
 
+#####################################
+#CLASSIFICATION MODELS
 
 
 ###########
@@ -269,6 +303,8 @@ ggroc(roc_lasso)
 
 
 
+#####################################
+#GRAVEYARD / OLD
 
 #removing data and columns in order to run ggpairs(train) since it takes forever to plot
 df_soccer3_sub = sample(nrow(df_soccer3), size = nrow(df_soccer3)*.1) #creating a new subset of 10% of the training data so that we can easily run ggpairs 
