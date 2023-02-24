@@ -4,6 +4,7 @@ library(cvTools)
 library(GGally)
 library(readr)
 library(boot)
+library(pROC)
 library(ggplot2)
 library(glmnet)
 
@@ -54,8 +55,13 @@ df_soccer2 <-  df_soccer[in.train, ] #this is the 80% we can work with until the
 df_class_test <-  df_soccer[-in.train, ] #setting aside the holdout data to 
 
 
+<<<<<<< HEAD
+?
+
+=======
 #####################################
 #REGRESSION MODELS
+>>>>>>> refs/remotes/origin/main
 
 #Removing "Referee" and ID so cvFit will work
 df_soccer3 <- subset(df_soccer2, select = -c(Referee, id))
@@ -208,12 +214,98 @@ mse_test
 #####################################
 #CLASSIFICATION MODELS
 
-#Classification Model
+
+###########
+###########
+
+
+# Binary Classification Model
+# Predicting the value of "watch_game", 0 or 1: Will this game have an above-average number of goals scored?
+
+#Removing "Referee" and ID (so cvFit will work)
 df_soccer_bin <- subset(df_soccer2, select = -c(Referee, id))
-class_model = glm(formula = watch_game ~ ., family = "binomial", data = df_soccer_bin)
-summary(class_model)
-cv_class.model <- cv.glm(df_soccer_bin, class_model, K = 10)
-cv_class.model
+
+# B: baseline model (all covariates)
+set.seed(1) 
+bin_baseline = glm(formula = watch_game ~ ., family = "binomial", data = df_soccer_bin)
+# summary(bin_baseline)
+cv_bin_baseline <- cv.glm(df_soccer_bin, bin_baseline, K = 10)
+(bin_error_b <- cv_bin_baseline$delta[1])
+
+# 1: Select only the covariates marked *** in ggpairs()
+#set.seed(1) 
+bin_model_1 = glm(formula = watch_game ~ Points + HTHG + HTAG + HS + AS + HST + AST, family = "binomial", data = df_soccer_bin)
+cv_bin_model_1 <- cv.glm(df_soccer_bin, bin_model_1, K = 10)
+(bin_error_1 <- cv_bin_model_1$delta[1])
+
+pred_1 <- predict(bin_model_1, newx=x_bin, type="response")
+roc_1 <- roc(df_soccer_bin$watch_game, pred_1)
+auc_1 <- auc(roc_1)
+auc_1
+ggroc(roc)
+
+
+
+x_bin <- data.matrix(df_soccer_bin[, c('Points', 'HTHG', 'HTAG', 'HTR', 'HS', 'AS', 'HST', 'AST', 'HC' , 'AC', 'HY', 'AY', 'HR', 'AR', 'days_into')])
+
+# 2: Ridge regression
+#set.seed(1)
+bin_model_2 <- glmnet(x_bin, df_soccer_bin$watch_game, family="binomial", alpha=0)
+    # find the optimal lambda
+cv_bin_model_2 <- cv.glmnet(x_bin, df_soccer_bin$watch_game, nfolds=10)
+ridge_lambda <- cv_bin_model_2$lambda.min
+
+    # use the optimal lambda to build a new model using ridge regression
+bin_ridge_model_opt_lambda <- glmnet(x_bin, df_soccer_bin$watch_game, family="binomial", alpha=0, lambda=ridge_lambda)
+#summary(bin_ridge_model_opt_lambda)
+    # find the error of the ridge regression model
+pred <- predict(bin_ridge_model_opt_lambda, newx=x_bin, type="response")
+roc <- roc(df_soccer_bin$watch_game, pred)
+auc <- auc(roc)
+auc
+ggroc(roc)
+
+
+    # find the lowest mean squared error
+#i <- which(cv_bin_model_2$lambda == cv_bin_model_2$lambda.min)
+#mse.min <- cv_bin_model_2$cvm[i]
+#(bin_error_2 <- cv_bin_model_2$cvsd)
+
+# 3: Lasso regression
+#bin_model_3 <- glmnet(x_bin, df_soccer_bin$watch_game, family="binomial", alpha=1)
+# find the optimal lambda
+cv_bin_model_3 <- cv.glmnet(x_bin, df_soccer_bin$watch_game, nfolds=10)
+lasso_lambda <- cv_bin_model_3$lambda.min
+
+# use the optimal lambda to build a new model using ridge regression
+bin_lasso_model_opt_lambda <- glmnet(x_bin, df_soccer_bin$watch_game, family="binomial", alpha=1, lambda=lasso_lambda)
+#summary(bin_ridge_model_opt_lambda)
+# find the error of the ridge regression model
+pred_lasso <- predict(bin_lasso_model_opt_lambda, newx=x_bin, type="response")
+roc_lasso <- roc(df_soccer_bin$watch_game, pred_lasso)
+auc_lasso <- auc(roc_lasso)
+auc_lasso
+ggroc(roc_lasso)
+
+
+# cv_bin_model_2 <- cv.glm(df_soccer_bin, bin_model_2, K = 10)
+# (bin_error_2 <- cv_bin_model_2$delta[1])
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
