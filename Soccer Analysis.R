@@ -52,26 +52,28 @@ set.seed(1)
 df_soccer$id <- 1:nrow(df_soccer) #adding a unique ID column
 in.train <-  sample(nrow(df_soccer), size = nrow(df_soccer)*.8) #setting 80% of the data for the train
 df_soccer2 <-  df_soccer[in.train, ] #this is the 80% we can work with until the end
-df_class_test <-  df_soccer[-in.train, ] #setting aside the holdout data to 
+df_soccer2_test <-  df_soccer[-in.train, ] #setting aside the holdout data to 
+
+#################
+#Replicating manipulations on test set
+df_soccer3_test <- subset(df_soccer2_test, select = -c(Referee, id))
+head(df_soccer3_test)
+df_soccer3_num_test <- subset(df_soccer3_test, select = -c(Date, HomeTeam, AwayTeam, HTR, weekday))
 
 
-<<<<<<< HEAD
-?
-
-=======
 #####################################
 #REGRESSION MODELS
->>>>>>> refs/remotes/origin/main
 
 #Removing "Referee" and ID so cvFit will work
 df_soccer3 <- subset(df_soccer2, select = -c(Referee, id))
 head(df_soccer3)
-df_soccer3_num <- subset(df_soccer3, select = -c(Date, HomeTeam, AwayTeam, HTR, weekday))
-
+df_soccer3_num <- subset(df_soccer3, select = -c(Date, HomeTeam, AwayTeam, HTR, weekday))#used for correlation matrix
+view(df_soccer3)
 #Model & CV  *1*
 model <-  lm(Points ~ ., data = df_soccer3)
 model
 summary(model)
+coef(model)
 
 predict_model <-  predict(model, data = df_soccer3)
 rmse_allvarLM <-  sqrt(mean((df_soccer3$Points - predict_model)^2))
@@ -108,6 +110,11 @@ cor_matrix <- cor(df_soccer3_num)
 order <- order(abs(cor_matrix[, "Points"]), decreasing = TRUE)
 corrplot(cor_matrix[order, order], method = "color", type = "upper", tl.cex = 0.7, number.cex = 0.7)
 
+cor_matrix <- cor(df_soccer3_num)
+order <- order(abs(cor_matrix[, "watch_game"]), decreasing = TRUE)
+corrplot(cor_matrix[order, order], method = "color", type = "upper", tl.cex = 0.7, number.cex = 0.7)
+
+
 #Histogram of residuals of allvarLM
 hist(allVarLM_residuals, main = "Histogram of allvarLM Residuals", xlab = "Residuals", breaks = 100, 
      col = "blue", border = "white", ylab = "Frequency")
@@ -126,6 +133,7 @@ lasso_cv_model <- cv.glmnet(x, df_soccer3$Points, alpha = 1)
 plot(lasso_cv_model)
 lambda <- lasso_cv_model$lambda.min
 lambda
+
 ### Fit the model using the entire training set with the optimal lambda value
 fit <- glmnet(x, df_soccer3$Points, alpha = 1, lambda = lambda)
 
@@ -133,19 +141,101 @@ fit <- glmnet(x, df_soccer3$Points, alpha = 1, lambda = lambda)
 lasso_pred <- predict(fit, x)
 mse_lasso <- mean((lasso_pred - df_soccer3$Points)^2)
 rmse_lasso_cv10 <- sqrt(mean((lasso_pred - df_soccer3$Points)^2))
-rmse_lasso
+rmse_lasso_cv10
 mse_lasso
-
-
 sst <- sum((df_soccer3$Points - mean(df_soccer3$Points))^2)
 sse_lasso <- sum((lasso_pred - df_soccer3$Points)^2)
 sst
 sse_lasso
 #find R-Squared
-rsq_lasso <- 1 - lasso_sse/sst
+rsq_lasso <- 1 - sse_lasso/sst
 rsq_lasso
 
+#Lasso Coefficients: 
+lM_LASSO <- cv.glmnet(x, df_soccer3$Points, alpha = 1)
+opt_lam <- lM_LASSO$lambda.min
+opt_lam
+lM_LASSO <- glmnet(x_test, df_soccer3_test$Points,
+                   intercept=TRUE, alpha=1, lambda = opt_lam)
+W <- as.matrix(coef(lasso_cv_model))
+W
 
+keep_X <- rownames(W)[W!=0]
+keep_X
+keep_X <- keep_X[!keep_X == "(Intercept)"]
+keep_X
+x_train <- x[,keep_X]
+summary(lm(df_soccer3$Points ~ x_train))
+
+
+####################
+####################
+### evaluate *TEST* set using lasso & Lasso_cv10
+
+df_soccer3_test <- na.omit(df_soccer3_test)
+x_test <- data.matrix(df_soccer3_test[, c('HTHG', 'HTAG', 'HTR', 'HS', 'AS', 'HST', 'AST', 'HC' , 'AC', 'HY', 'AY', 'HR', 'AR')])
+lasso_test <- glmnet(x_test, df_soccer3_test$Points, alpha = 1)
+lasso_test
+summary(lasso_test)
+lasso_test_coefs <- coef(lasso_test, s = lambda_test)
+print(lasso_test_coefs)
+
+###alternate:https://stats.stackexchange.com/questions/410173/lasso-regression-p-values-and-coefficients
+###TEST COEFFICIENTS
+df_soccer3_test <- na.omit(df_soccer3_test)
+nrow(df_soccer3_test)
+x_test <- data.matrix(
+  df_soccer3_test[, 
+                  c('HTHG', 'HTAG', 'HTR', 'HS', 
+                    'AS', 'HST', 'AST', 'HC' , 'AC', 
+                    'HY', 'AY', 'HR', 'AR')])
+lM_LASSO <- cv.glmnet(x_test, df_soccer3_test$Points,
+                      intercept=TRUE, alpha=1, nfolds=nrow(ds),
+                      parallel = T)
+opt_lam <- lM_LASSO$lambda.min
+lM_LASSO <- glmnet(x_test, df_soccer3_test$Points,
+                   intercept=TRUE, alpha=1, lambda = opt_lam)
+W <- as.matrix(coef(lM_LASSO))
+W
+
+keep_X <- rownames(W)[W!=0]
+keep_X
+keep_X <- keep_X[!keep_X == "(Intercept)"]
+keep_X
+x_test
+x_test <- x_test[,keep_X]
+summary(lm(df_soccer3_test$Points ~ x_test))
+
+
+
+
+### Use cross-validation to select the optimal lambda value
+lasso_cv_model_test <- cv.glmnet(x_test, df_soccer3_test$Points, alpha = 1)
+lasso_cv_model_test
+plot(lasso_cv_model_test)
+lambda_test <- lasso_cv_model_test$lambda.min
+lambda_test
+
+
+### Fit the model using the entire training set with the optimal lambda value
+fit_test <- glmnet(x_test, df_soccer3_test$Points, alpha = 1, lambda = lambda_test)
+
+lasso_pred_test <- predict(fit_test, x_test)
+summary(lasso_pred_test)
+mse_lasso_test <- mean((lasso_pred_test - df_soccer3_test$Points)^2)
+rmse_lasso_cv10_test <- sqrt(mean((lasso_pred_test - df_soccer3_test$Points)^2))
+rmse_lasso_cv10_test
+summary(rmse_lasso_cv10_test)
+mse_lasso_test
+sst_test <- sum((df_soccer3_test$Points - mean(df_soccer3_test$Points))^2)
+sse_lasso_test <- sum((lasso_pred_test - df_soccer3_test$Points)^2)
+sst_test
+sse_lasso_test
+#find R-Squared
+rsq_lasso_test <- 1 - sse_lasso_test/sst_test
+rsq_lasso_test
+
+################################## END TEST 
 
 #model 1b. RIDGE REGRESSION
 ridge_model <- glmnet(x, df_soccer3$Points, alpha = 0)
@@ -187,20 +277,20 @@ model3_cv10
 rmse_lessvarLM_cv10 <- 0.9837787
 
 #model 3a. WITH LASSO 
-x <- data.matrix(df_soccer5[, c('HTHG', 'HTAG', 'HTR', 'HS', 'AS', 'HST', 'AST', 'HC' , 'AC')])
-lasso <- glmnet(x, df_soccer5$Points)
+x2 <- data.matrix(df_soccer5[, c('HTHG', 'HTAG', 'HTR', 'HS', 'AS', 'HST', 'AST', 'HC' , 'AC')])
+lasso <- glmnet(x2, df_soccer5$Points)
 lasso
 predict(lasso, type = "coef", s = .00206)
 
 ### Use cross-validation to select the optimal lambda value
-lasso_cv_model <- cv.glmnet(x, df_soccer5$Points, alpha = 1)
+lasso_cv_model <- cv.glmnet(x2, df_soccer5$Points, alpha = 1)
 lambda <- lasso_cv_model$lambda.min
 
 ### Fit the model using the entire training set with the optimal lambda value
-fit <- glmnet(x, df_soccer5$Points, alpha = 1, lambda = lambda)
+fit <- glmnet(x2, df_soccer5$Points, alpha = 1, lambda = lambda)
 
 ### Evaluate the performance of the model on the test set
-pred <- predict(fit, x)
+pred <- predict(fit, x2)
 mse <- mean((pred - df_soccer5$Points)^2)
 mse
 
