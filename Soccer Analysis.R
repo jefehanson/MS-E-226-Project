@@ -7,6 +7,8 @@ library(boot)
 library(pROC)
 library(ggplot2)
 library(glmnet)
+library(caret)
+
 
 
 #####################################
@@ -167,8 +169,6 @@ keep_X
 x_train <- x[,keep_X]
 summary(lm(df_soccer3$Points ~ x_train))
 
-
-####################
 ####################
 ### evaluate *TEST* set using lasso & Lasso_cv10
 
@@ -304,26 +304,39 @@ mse_test
 #####################################
 #CLASSIFICATION MODELS
 
-
-###########
-###########
-
-
 # Binary Classification Model
 # Predicting the value of "watch_game", 0 or 1: Will this game have an above-average number of goals scored?
 
 #Removing "Referee" and ID (so cvFit will work)
 df_soccer_bin <- subset(df_soccer2, select = -c(Referee, id))
+x_bin <- data.matrix(df_soccer_bin[, c('Points', 'HTHG', 'HTAG', 'HTR', 'HS', 'AS', 'HST', 'AST', 'HC' , 'AC', 'HY', 'AY', 'HR', 'AR', 'days_into')])
+
+df_soccer_bin_test <- subset(df_soccer2_test, select = -c(Referee, id))
+x_bin_test <- data.matrix(df_soccer_bin_test[, c('Points', 'HTHG', 'HTAG', 'HTR', 'HS', 'AS', 'HST', 'AST', 'HC' , 'AC', 'HY', 'AY', 'HR', 'AR', 'days_into')])
+
+
+##### Other Models #####
 
 # B: baseline model (all covariates)
-set.seed(1) 
+set.seed(1)
 bin_baseline = glm(formula = watch_game ~ ., family = "binomial", data = df_soccer_bin)
 # summary(bin_baseline)
 cv_bin_baseline <- cv.glm(df_soccer_bin, bin_baseline, K = 10)
 (bin_error_b <- cv_bin_baseline$delta[1])
 
+pred_b <- predict(bin_baseline, newx=x_bin, type="response")
+roc_b <- roc(df_soccer_bin$watch_game, pred_b)
+auc_b <- auc(roc_b)
+auc_b
+ggroc(roc_b)
+
+t <- 0.5 # our classification threshold
+class_b <- ifelse(pred_b > t, 1, 0)
+confusionMatrix(factor(class_b), factor(df_soccer_bin$watch_game))
+sens_b <- sensitivity(factor(class_b), factor(df_soccer_bin$watch_game))
+
 # 1: Select only the covariates marked *** in ggpairs()
-#set.seed(1) 
+#set.seed(1)
 bin_model_1 = glm(formula = watch_game ~ Points + HTHG + HTAG + HS + AS + HST + AST, family = "binomial", data = df_soccer_bin)
 cv_bin_model_1 <- cv.glm(df_soccer_bin, bin_model_1, K = 10)
 (bin_error_1 <- cv_bin_model_1$delta[1])
@@ -332,54 +345,79 @@ pred_1 <- predict(bin_model_1, newx=x_bin, type="response")
 roc_1 <- roc(df_soccer_bin$watch_game, pred_1)
 auc_1 <- auc(roc_1)
 auc_1
-ggroc(roc)
+ggroc(roc_1)
+
+t <- 0.5 # our classification threshold
+class_1 <- ifelse(pred_1 > t, 1, 0)
+confusionMatrix(factor(class_1), factor(df_soccer_bin$watch_game))
+sens_1 <- sensitivity(factor(class_1), factor(df_soccer_bin$watch_game))
 
 
 
-x_bin <- data.matrix(df_soccer_bin[, c('Points', 'HTHG', 'HTAG', 'HTR', 'HS', 'AS', 'HST', 'AST', 'HC' , 'AC', 'HY', 'AY', 'HR', 'AR', 'days_into')])
 
-# 2: Ridge regression
-#set.seed(1)
+### 2: Ridge regression
 bin_model_2 <- glmnet(x_bin, df_soccer_bin$watch_game, family="binomial", alpha=0)
-    # find the optimal lambda
+
+# find the optimal lambda
 cv_bin_model_2 <- cv.glmnet(x_bin, df_soccer_bin$watch_game, nfolds=10)
+summary(cv_bin_model_2)
 ridge_lambda <- cv_bin_model_2$lambda.min
 
-    # use the optimal lambda to build a new model using ridge regression
+# use the optimal lambda to build a new model using ridge regression
 bin_ridge_model_opt_lambda <- glmnet(x_bin, df_soccer_bin$watch_game, family="binomial", alpha=0, lambda=ridge_lambda)
-#summary(bin_ridge_model_opt_lambda)
-    # find the error of the ridge regression model
-pred <- predict(bin_ridge_model_opt_lambda, newx=x_bin, type="response")
-roc <- roc(df_soccer_bin$watch_game, pred)
-auc <- auc(roc)
-auc
-ggroc(roc)
 
+# find the AUC error of the ridge regression model
+pred_ridge <- predict(bin_ridge_model_opt_lambda, newx=x_bin, type="response")
+roc_ridge <- roc(df_soccer_bin$watch_game, pred_ridge)
+auc_ridge <- auc(roc_ridge)
+auc_ridge
+ggroc(roc_ridge)
 
-    # find the lowest mean squared error
-#i <- which(cv_bin_model_2$lambda == cv_bin_model_2$lambda.min)
-#mse.min <- cv_bin_model_2$cvm[i]
-#(bin_error_2 <- cv_bin_model_2$cvsd)
+# create the confusion matrix
+t <- 0.5 # our classification threshold
+class_ridge <- ifelse(pred_ridge > t, 1, 0)
+confusionMatrix(factor(class_ridge), factor(df_soccer_bin$watch_game))
+sens_ridge <- sensitivity(factor(class_ridge), factor(df_soccer_bin$watch_game))
 
-# 3: Lasso regression
-#bin_model_3 <- glmnet(x_bin, df_soccer_bin$watch_game, family="binomial", alpha=1)
+######
+### Lasso Regression
+
 # find the optimal lambda
 cv_bin_model_3 <- cv.glmnet(x_bin, df_soccer_bin$watch_game, nfolds=10)
 lasso_lambda <- cv_bin_model_3$lambda.min
 
-# use the optimal lambda to build a new model using ridge regression
-bin_lasso_model_opt_lambda <- glmnet(x_bin, df_soccer_bin$watch_game, family="binomial", alpha=1, lambda=lasso_lambda)
-#summary(bin_ridge_model_opt_lambda)
-# find the error of the ridge regression model
-pred_lasso <- predict(bin_lasso_model_opt_lambda, newx=x_bin, type="response")
+# use the optimal lambda to build a new model using lasso regression
+bin_lasso_model <- glmnet(x_bin, df_soccer_bin$watch_game, family="binomial", alpha=1, lambda=lasso_lambda)
+
+# find the AUC error of the lasso regression model
+pred_lasso <- predict(bin_lasso_model, newx=x_bin, type="response")
 roc_lasso <- roc(df_soccer_bin$watch_game, pred_lasso)
 auc_lasso <- auc(roc_lasso)
 auc_lasso
+ggroc(roc_lasso) +
+  labs(title="ROC of Lasso Model", "subtitle"="AUC = 0.7781")
+legend("bottomright", title="ROC of Lasso Model", legend="Receiver Operating Curve")
+
+# create the confusion matrix
+t <- 0.5 # our classification threshold
+class_lasso <- ifelse(pred_lasso > t, 1, 0)
+confusionMatrix(factor(class_lasso), factor(df_soccer_bin$watch_game))
+sens_lasso <- sensitivity(factor(class_lasso), factor(df_soccer_bin$watch_game))
+
+## TEST BEST MODEL ON TEST DATA
+
+#x_test_bin <- data.matrix( df_soccer3_test[, c('Points', 'HTHG', 'HTAG', 'HTR', 'HS', 'AS', 'HST', 'AST', 'HC' , 'AC', 'HY', 'AY', 'HR', 'AR', 'days_into')])
+pred_lasso_test <- predict(bin_lasso_model, newx=x_bin_test, type="response")
+roc_lasso_test <- roc(df_soccer_bin_test$watch_game, pred_lasso_test)
+auc_lasso_test <- auc(roc_lasso_test)
+auc_lasso_test
 ggroc(roc_lasso)
 
+t <- 0.5 # our classification threshold
+class_lasso_test <- ifelse(pred_lasso_test > t, 1, 0)
+confusionMatrix(factor(class_lasso_test), factor(df_soccer_bin_test$watch_game))
+sens_lasso_test <- sensitivity(factor(class_lasso_test), factor(df_soccer_bin_test$watch_game))
 
-# cv_bin_model_2 <- cv.glm(df_soccer_bin, bin_model_2, K = 10)
-# (bin_error_2 <- cv_bin_model_2$delta[1])
 
 
 
